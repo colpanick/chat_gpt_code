@@ -1,38 +1,36 @@
-import os
+from pathlib import Path
 
-def process_document(input_file):
-    with open(input_file, 'r') as file:
+def parse_user_report(input_file):
+    input_path = Path(input_file)
+
+    with open(input_path, 'r') as file:
         lines = file.readlines()
 
-    current_document = None
-    document_content = []
+    current_group = None
+    group_content = []
 
     for line in lines:
-        if line.strip():  # Check if the line is not empty or whitespace only
-            if current_document:
-                document_content.append(line)
-            else:
-                current_document = line.strip()
-                document_content = [line]
+        if line.startswith("User group:"):
+            break
 
-        elif current_document:
-            # Save the content to a file
-            save_document(current_document, document_content)
-            current_document = None
-            document_content = []
+        if not line.startswith(" "):
+            if current_group:
+                save_group_data(current_group, group_content, input_path.parent)
+            current_group = line.strip()
+            group_content = [line]
+        else:
+            group_content.append(line)
 
-    # Save the last document if any
-    if current_document:
-        save_document(current_document, document_content)
+    # Save the last group if any
+    if current_group:
+        save_group_data(current_group, group_content, input_path.parent)
 
-def save_document(document_name, document_content):
-    output_directory = os.path.dirname(os.path.abspath(__file__))
-    output_file_path = os.path.join(output_directory, f"{document_name}.txt")
-
-    with open(output_file_path, 'w') as output_file:
-        output_file.writelines(document_content)
+def save_group_data(group_name, group_content, output_directory):
+    output_path = output_directory / f"{group_name}.txt"
+    with open(output_path, 'w') as output_file:
+        output_file.writelines(group_content)
 
 if __name__ == "__main__":
-    input_document = input("Enter the path of the document to process: ")
-    process_document(input_document)
-    print("Processing complete.")
+    input_report = input("Enter the name of the user report file: ")
+    parse_user_report(input_report)
+    print("Parsing complete.")
