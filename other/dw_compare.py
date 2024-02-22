@@ -1,43 +1,45 @@
+from pathlib import Path
 import csv
-import glob
 
-def compare_csv_files(file1_pattern, file2_pattern, column_number, output_columns, output_file):
-    data1 = read_csv_files(file1_pattern)
-    data2 = read_csv_files(file2_pattern)
+# Configuration
+OLD_DIP_LOCATION = Path("/path/to/old/directory")
+NEW_DIP_LOCATION = Path("/path/to/new/directory")
+DIP_PREFIX = "your_prefix"
+ID_COLUMN = 2  # Assuming 0-based indexing for columns
+OUTPUT_DIRECTORY = Path("/path/to/output/directory")
 
-    column_values1 = set(row[column_number] for row in data1)
-    column_values2 = set(row[column_number] for row in data2)
-
-    unique_values_in_file1 = column_values1 - column_values2
-    unique_values_in_file2 = column_values2 - column_values1
-
-    unique_rows = [row for row in data1 if row[column_number] in unique_values_in_file1]
-    unique_rows += [row for row in data2 if row[column_number] in unique_values_in_file2]
-
-    write_csv(unique_rows, output_columns, output_file)
-
-def read_csv_files(file_pattern):
-    data = []
-    for file_path in glob.glob(file_pattern):
-        data += read_csv(file_path)
-    return data
-
-def read_csv(file_path):
+# Function to parse a CSV file and extract unique values in the specified column
+def extract_unique_values(file_path, column_index):
+    unique_values = set()
     with open(file_path, 'r') as file:
-        reader = csv.reader(file)
-        return [row for row in reader]
+        reader = csv.reader(file, delimiter='|')
+        for row in reader:
+            unique_values.add(row[column_index])
+    return unique_values
 
-def write_csv(data, columns, output_file):
-    with open(output_file, 'w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(columns)
-        writer.writerows([row[col] for col in columns] for row in data)
+# Get unique values from OLD_DIP_LOCATION
+old_unique_values = set()
+for file_path in OLD_DIP_LOCATION.glob(f"{DIP_PREFIX}*.txt"):
+    old_unique_values.update(extract_unique_values(file_path, ID_COLUMN))
 
-if __name__ == "__main__":
-    file1_pattern = "files1/*.csv"
-    file2_pattern = "files2/*.csv"
-    column_number = 1  # Change to the desired column number (0-based index)
-    output_columns = ["Column1", "Column2", "Column3"]  # Change to the desired column names
-    output_file_path = "output_file.csv"
+# Get unique values from NEW_DIP_LOCATION
+new_unique_values = set()
+for file_path in NEW_DIP_LOCATION.glob(f"{DIP_PREFIX}*.txt"):
+    new_unique_values.update(extract_unique_values(file_path, ID_COLUMN))
 
-    compare_csv_files(file1_pattern, file2_pattern, column_number, output_columns, output_file_path)
+# Find differences
+differences = {
+    "in_old_not_in_new": old_unique_values - new_unique_values,
+    "in_new_not_in_old": new_unique_values - old_unique_values
+}
+
+# Write differences to the output file
+output_file_path = OUTPUT_DIRECTORY / f"{DIP_PREFIX}-differences.txt"
+with open(output_file_path, 'w') as output_file:
+    for diff_type, values in differences.items():
+        output_file.write(f"{diff_type}:\n")
+        for value in values:
+            output_file.write(f"{value}\n")
+        output_file.write("\n")
+
+print(f"Differences written to: {output_file_path}")
