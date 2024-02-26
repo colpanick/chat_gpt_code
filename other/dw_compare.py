@@ -1,6 +1,5 @@
 from pathlib import Path
 import csv
-import shutil
 
 # Configuration
 OLD_DIP_LOCATION = Path("/path/to/old/directory")
@@ -30,40 +29,27 @@ new_unique_values = set()
 for file_path in NEW_DIP_LOCATION.glob(f"{DIP_PREFIX}*.txt"):
     new_unique_values.update(extract_unique_values(file_path, ID_COLUMN))
 
-# Find differences
+# Find differences in old dip files
 in_old_not_in_new = old_unique_values - new_unique_values
-in_new_not_in_old = new_unique_values - old_unique_values
-
-# Create the first output file
-output_file_path = OUTPUT_DIRECTORY / f"{DIP_PREFIX}-differences.csv"
-with open(output_file_path, 'w', newline='') as output_file:
-    csv_writer = csv.writer(output_file)
-    csv_writer.writerow(["Filepath", "ID"])
+output_file_path_old = OUTPUT_DIRECTORY / f"{DIP_PREFIX}-old-differences.csv"
+with open(output_file_path_old, 'w', newline='') as output_file_old:
+    csv_writer_old = csv.writer(output_file_old)
+    csv_writer_old.writerow(["Filepath", "ID"])
     for file_path in OLD_DIP_LOCATION.glob(f"{DIP_PREFIX}*.txt"):
         header, rows = extract_rows_by_ids(file_path, ID_COLUMN, in_old_not_in_new)
         if rows:
-            csv_writer.writerows(rows)
+            csv_writer_old.writerows(rows)
 
-# Parse the first output file and extract the entire record
-output_records = []
-with open(output_file_path, 'r') as output_file:
-    csv_reader = csv.reader(output_file)
-    header = next(csv_reader)  # Skip header
-    for row in csv_reader:
-        file_path, record_id = row
-        with open(file_path, 'r') as dip_file:
-            dip_reader = csv.reader(dip_file, delimiter='|')
-            for dip_row in dip_reader:
-                if dip_row[ID_COLUMN] == record_id:
-                    output_records.append((file_path, dip_row))
-                    break
+# Find differences in new dip files
+in_new_not_in_old = new_unique_values - old_unique_values
+output_file_path_new = OUTPUT_DIRECTORY / f"{DIP_PREFIX}-new-differences.csv"
+with open(output_file_path_new, 'w', newline='') as output_file_new:
+    csv_writer_new = csv.writer(output_file_new)
+    csv_writer_new.writerow(["Filepath", "ID"])
+    for file_path in NEW_DIP_LOCATION.glob(f"{DIP_PREFIX}*.txt"):
+        header, rows = extract_rows_by_ids(file_path, ID_COLUMN, in_new_not_in_old)
+        if rows:
+            csv_writer_new.writerows(rows)
 
-# Create the second output file
-output_records_file_path = OUTPUT_DIRECTORY / f"{DIP_PREFIX}-differences-records.csv"
-with open(output_records_file_path, 'w', newline='') as output_records_file:
-    csv_writer = csv.writer(output_records_file)
-    csv_writer.writerow(["Filepath", "Record"])
-    csv_writer.writerows(output_records)
-
-print(f"Differences written to: {output_file_path}")
-print(f"Corresponding records written to: {output_records_file_path}")
+print(f"Differences in old dip files written to: {output_file_path_old}")
+print(f"Differences in new dip files written to: {output_file_path_new}")
