@@ -41,6 +41,8 @@ def parse_log_and_upload_to_database(log_file_path):
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
 
+    current_date = None  # Variable to store the current date
+
     with open(log_file_path, 'r') as log_file:
         for line in log_file:
             if line.startswith("Date:"):
