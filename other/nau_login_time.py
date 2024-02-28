@@ -36,9 +36,10 @@ def parse_log_and_generate_csv(log_file_path, output_csv_path):
             elif "Logged into Client Module" in line:
                 current_user = line[14:44].strip()
                 login_time = line[5:13].strip()
-                message = line[45:].strip()
-                workstation_name = extract_workstation_name(message)
-                active_sessions[current_user] = {"login_time": login_time, "logout_time": None, "workstation": workstation_name}
+                if current_user in active_sessions and active_sessions[current_user]["logout_time"] is not None:
+                    duration = calculate_duration_in_minutes(login_time, active_sessions[current_user]["logout_time"])
+                    data.append((current_date, current_user, duration, active_sessions[current_user]["workstation"]))
+                    del active_sessions[current_user]  # Remove the user from active sessions
             elif "Logged out of Client Module" in line:
                 current_user = line[14:44].strip()
                 logout_time = line[5:13].strip()
