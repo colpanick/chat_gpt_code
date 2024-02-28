@@ -27,28 +27,38 @@ def extract_workstation_name(message):
 def parse_log_and_generate_csv(log_file_path, output_csv_path):
     data = []
     active_sessions = {}  # Dictionary to track active sessions for each user
+    prev_date = None
+    prev_time = None
 
     with open(log_file_path, 'r') as log_file:
         for line in log_file:
             if line.startswith("Date:"):
                 current_date = datetime.strptime(line.split()[1], "%m/%d/%Y").date()
                 active_sessions = {}  # Reset active sessions for each new date
+                prev_date = current_date
             elif "Logged into Client Module" in line:
                 current_user = line[14:44].strip()
                 login_time = line[5:13].strip()
-                if current_user in active_sessions and active_sessions[current_user]["logout_time"] is not None:
-                    duration = calculate_duration_in_minutes(login_time, active_sessions[current_user]["logout_time"])
-                    data.append((current_date, current_user, duration, active_sessions[current_user]["workstation"]))
-                    del active_sessions[current_user]  # Remove the user from active sessions
+                message = line[45:].strip()
+                workstation_name = extract_workstation_name(message)
+                active_sessions[current_user] = {"login_time": login_time, "logout_time": None, "workstation": workstation_name}
             elif "Logged out of Client Module" in line:
                 current_user = line[14:44].strip()
                 logout_time = line[5:13].strip()
                 message = line[45:].strip()
                 workstation_name = extract_workstation_name(message)
-                if current_user in active_sessions and active_sessions[current_user]["logout_time"] is None:
-                    active_sessions[current_user]["logout_time"] = logout_time
-                    duration = calculate_duration_in_minutes(active_sessions[current_user]["login_time"], logout_time)
-                    data.append((current_date, current_user, duration, workstation_name))
+
+                # Check if the current date and time are in descending order
+                current_datetime = datetime.combine(current_date, datetime.strptime(logout_time, "%H:%M:%S").time())
+                prev_datetime = datetime.combine(prev_date, datetime.strptime(prev_time, "%H:%M:%S").time()) if prev_date else None
+
+                if prev_datetime and current_datetime > prev_datetime:
+                    prev_date = current_date
+                else:
+                    if current_user in active_sessions and active_sessions[current_user]["logout_time"] is None:
+                        active_sessions[current_user]["logout_time"] = logout_time
+                        duration = calculate_duration_in_minutes(active_sessions[current_user]["login_time"], logout_time)
+                        data.append((current_date, current_user, duration, workstation_name))
 
     # Create a CSV file with the results
     with open(output_csv_path, 'w', newline='') as output_file:
